@@ -14,5 +14,6 @@ public:
                           float angle, float speed);
 private:
     float integral_ = 0, filtered_speed_ = 0, breakaway_ = 0;
+    uint32_t stalled_ticks_ = 0;
 };
 #endif

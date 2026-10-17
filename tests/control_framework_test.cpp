@@ -466,6 +466,13 @@ int main() {
     if (CONTROL_COMMAND_CURRENT && CONTROL_SPEED_CALC_ENABLED) {
         AssessmentController controller;
         controller.reset(0);
+        // 经过短暂量化零速时不立即触发起动补偿。
+        AssessmentOutput early = {};
+        for (unsigned i = 0; i < 50; ++i) early = controller.step(false, 2000, 0, 0, 0);
+        const float before_boost = CONTROL_ASSESSMENT_SPEED_KP * 3.0f + CONTROL_ASSESSMENT_FRICTION_RAW +
+                                   CONTROL_ASSESSMENT_SPEED_KI * 3.0f * 0.05f;
+        assert(std::fabs(early.output - before_boost) < 0.01f);
+        controller.reset(0);
         for (unsigned i = 0; i < 4000; ++i) {
             const auto v = controller.step(false, 2000, 0, 0, 0);
             assert(std::fabs(v.target_speed - 3.0f) < 0.0001f);
