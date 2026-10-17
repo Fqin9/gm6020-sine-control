@@ -15,7 +15,7 @@ $commonArgs = @(
 )
 $cases = @(
     @{ Name = 'default-can1'; Flags = @() },
-    @{ Name = 'derivative-disabled'; Flags = @('-DCONTROL_ASSESSMENT_SPEED_KD=0.0f') },
+    @{ Name = 'derivative-enabled'; Flags = @('-DCONTROL_ASSESSMENT_SPEED_KD=0.5f') },
     @{ Name = 'angle-ff-disabled'; Flags = @('-DCONTROL_ASSESSMENT_ANGLE_FF_ENABLED=0') },
     @{ Name = 'voltage-id1'; Flags = @('-DCONTROL_COMMAND_CURRENT=0') },
     @{ Name = 'voltage-id5'; Flags = @('-DCONTROL_COMMAND_CURRENT=0', '-DCONTROL_MOTOR_ID=5') },
