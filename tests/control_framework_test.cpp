@@ -468,10 +468,22 @@ int main() {
         controller.reset(0);
         // 经过短暂量化零速时不立即触发起动补偿。
         AssessmentOutput early = {};
+        const float first = controller.step(false, 2000, 0, 0, 0).output;
+        controller.reset(0);
         for (unsigned i = 0; i < 50; ++i) early = controller.step(false, 2000, 0, 0, 0);
-        const float before_boost = CONTROL_ASSESSMENT_SPEED_KP * 3.0f + CONTROL_ASSESSMENT_FRICTION_RAW +
-                                   CONTROL_ASSESSMENT_SPEED_KI * 3.0f * 0.05f;
-        assert(std::fabs(early.output - before_boost) < 0.01f);
+        const float integration_only = CONTROL_ASSESSMENT_SPEED_KI * 3.0f * 0.049f;
+        assert(std::fabs((early.output - first) - integration_only) < 0.01f);
+        for (int i = -500; i <= 500; ++i) {
+            const float angle = i * 0.07f;
+            const float feed = AssessmentAngleFeedforward(angle, 1.0f);
+            assert(std::fabs(feed) <= CONTROL_ASSESSMENT_ANGLE_FF_LIMIT);
+            assert(std::fabs(feed - AssessmentAngleFeedforward(angle + 6.28318530718f, 1.0f)) < 0.01f);
+            assert(std::fabs(feed - AssessmentAngleFeedforward(angle, -1.0f)) < 0.0001f);
+            assert(AssessmentAngleFeedforward(angle, 0.0f) == 0.0f);
+            assert(std::fabs(AssessmentAngleFeedforward(angle, 0.15f) - feed * 0.5f) < 0.001f);
+        }
+        assert(AssessmentAngleFeedforward(std::numeric_limits<float>::quiet_NaN(), 1) == 0);
+        assert(AssessmentAngleFeedforward(0, std::numeric_limits<float>::infinity()) == 0);
         controller.reset(0);
         for (unsigned i = 0; i < 4000; ++i) {
             const auto v = controller.step(false, 2000, 0, 0, 0);

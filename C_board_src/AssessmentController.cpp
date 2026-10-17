@@ -5,8 +5,30 @@
 namespace {
 static_assert(CONTROL_ASSESSMENT_SPEED_FILTER_ALPHA > 0 && CONTROL_ASSESSMENT_SPEED_FILTER_ALPHA <= 1,
               "Speed filter alpha must be in (0, 1]");
+static_assert(CONTROL_ASSESSMENT_ANGLE_FF_ENABLED == 0 || CONTROL_ASSESSMENT_ANGLE_FF_ENABLED == 1,
+              "Angle feedforward switch must be 0 or 1");
+static_assert(CONTROL_ASSESSMENT_ANGLE_FF_LIMIT > 0 &&
+              CONTROL_ASSESSMENT_ANGLE_FF_LIMIT <= CONTROL_ASSESSMENT_CURRENT_LIMIT,
+              "Angle feedforward must stay within the current command limit");
 float clamp(float x, float lo, float hi) { return x < lo ? lo : (x > hi ? hi : x); }
 constexpr float kTwoPi = 6.2831853071795864769f;
+}
+
+float AssessmentAngleFeedforward(float angle, float speed_reference) {
+#if CONTROL_ASSESSMENT_ANGLE_FF_ENABLED
+    if (!std::isfinite(angle) || !std::isfinite(speed_reference)) return 0;
+    const float phase = std::remainder(angle, kTwoPi);
+    const float raw = CONTROL_ASSESSMENT_ANGLE_FF_SIN10 * std::sin(10.0f * phase) +
+                      CONTROL_ASSESSMENT_ANGLE_FF_COS10 * std::cos(10.0f * phase) +
+                      CONTROL_ASSESSMENT_ANGLE_FF_SIN20 * std::sin(20.0f * phase) +
+                      CONTROL_ASSESSMENT_ANGLE_FF_COS20 * std::cos(20.0f * phase);
+    // 保持扰动补偿与旋转方向无关；参考接近零时淡出。
+    return clamp(raw, -CONTROL_ASSESSMENT_ANGLE_FF_LIMIT, CONTROL_ASSESSMENT_ANGLE_FF_LIMIT) *
+           clamp(std::fabs(speed_reference) / 0.3f, 0.0f, 1.0f);
+#else
+    (void)angle; (void)speed_reference;
+    return 0;
+#endif
 }
 
 void AssessmentController::reset(float speed) {
@@ -42,7 +64,8 @@ AssessmentOutput AssessmentController::step(bool position, uint32_t elapsed_ms,
         breakaway_ = clamp(breakaway_ + 0.5f, 0, CONTROL_ASSESSMENT_BREAKAWAY_RAW);
     else breakaway_ *= 0.99f;
     const float base = CONTROL_ASSESSMENT_SPEED_KP * error +
-                       sign * (CONTROL_ASSESSMENT_FRICTION_RAW + breakaway_);
+                       sign * (CONTROL_ASSESSMENT_FRICTION_RAW + breakaway_) +
+                       AssessmentAngleFeedforward(angle, r.speed_reference);
     const float limit = CONTROL_ASSESSMENT_CURRENT_LIMIT;
     const float candidate = clamp(integral_ + CONTROL_ASSESSMENT_SPEED_KI * error * 0.001f,
                                   -limit, limit);

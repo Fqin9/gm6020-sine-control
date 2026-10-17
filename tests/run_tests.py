@@ -16,7 +16,8 @@ base = [cxx, '-std=c++17', '-Wall', '-Wextra', '-Wpedantic',
 sources = ['tests/control_framework_test.cpp', 'C_board_src/ControlTask.cpp',
            'C_board_src/Gm6020.cpp', 'C_board_src/Pid.cpp', 'C_board_src/AssessmentController.cpp']
 cases = {
-    'default-can1': [], 'voltage-id1': ['CONTROL_COMMAND_CURRENT=0'],
+    'default-can1': [], 'angle-ff-disabled': ['CONTROL_ASSESSMENT_ANGLE_FF_ENABLED=0'],
+    'voltage-id1': ['CONTROL_COMMAND_CURRENT=0'],
     'voltage-id5': ['CONTROL_COMMAND_CURRENT=0', 'CONTROL_MOTOR_ID=5'],
     'transmit-disabled': ['CONTROL_CAN_TX_ENABLED=0'],
     'exact-id-filter': ['CONTROL_CAN_DIAGNOSTIC_RX=0'],
