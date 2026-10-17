@@ -5,6 +5,11 @@
 namespace {
 static_assert(CONTROL_ASSESSMENT_SPEED_FILTER_ALPHA > 0 && CONTROL_ASSESSMENT_SPEED_FILTER_ALPHA <= 1,
               "Speed filter alpha must be in (0, 1]");
+static_assert(CONTROL_ASSESSMENT_SPEED_KD >= 0, "Derivative gain must be nonnegative");
+static_assert(CONTROL_ASSESSMENT_SPEED_D_FILTER_MS > 0, "Derivative filtering must be enabled");
+static_assert(CONTROL_ASSESSMENT_SPEED_D_LIMIT > 0 &&
+              CONTROL_ASSESSMENT_SPEED_D_LIMIT <= CONTROL_ASSESSMENT_CURRENT_LIMIT,
+              "Derivative command must stay within the total current limit");
 static_assert(CONTROL_ASSESSMENT_ANGLE_FF_ENABLED == 0 || CONTROL_ASSESSMENT_ANGLE_FF_ENABLED == 1,
               "Angle feedforward switch must be 0 or 1");
 static_assert(CONTROL_ASSESSMENT_ANGLE_FF_LIMIT > 0 &&
@@ -35,6 +40,7 @@ void AssessmentController::reset(float speed) {
     integral_ = breakaway_ = 0;
     stalled_ticks_ = 0;
     filtered_speed_ = speed;
+    filtered_acceleration_ = 0;
 }
 
 AssessmentOutput AssessmentController::step(bool position, uint32_t elapsed_ms,
@@ -51,8 +57,18 @@ AssessmentOutput AssessmentController::step(bool position, uint32_t elapsed_ms,
                 -CONTROL_ASSESSMENT_SPEED_LIMIT, CONTROL_ASSESSMENT_SPEED_LIMIT)
         : r.target_speed;
     // 首轮实测显示快速速度波动，缩短反馈滤波延迟，避免继续增加相位滞后。
+    const float previous_filtered_speed = filtered_speed_;
     filtered_speed_ += CONTROL_ASSESSMENT_SPEED_FILTER_ALPHA * (speed - filtered_speed_);
     r.filtered_speed = filtered_speed_;
+    if (CONTROL_ASSESSMENT_SPEED_KD > 0.0f) {
+        // 只对实测速度微分，目标变化不会直接引起微分冲击。
+        // 后向欧拉一阶滤波：alpha=dt/(tau+dt)，dt=1ms。
+        const float acceleration = (filtered_speed_ - previous_filtered_speed) * 1000.0f;
+        filtered_acceleration_ += (acceleration - filtered_acceleration_) /
+                                  (1.0f + CONTROL_ASSESSMENT_SPEED_D_FILTER_MS);
+        r.derivative_output = clamp(-CONTROL_ASSESSMENT_SPEED_KD * filtered_acceleration_,
+                                   -CONTROL_ASSESSMENT_SPEED_D_LIMIT, CONTROL_ASSESSMENT_SPEED_D_LIMIT);
+    }
     const float error = r.speed_reference - filtered_speed_;
     const float sign = clamp(r.speed_reference / 0.3f, -1.0f, 1.0f);
     // 卡在低速位置时逐渐增加起动补偿，转动后平滑撤去，避免长期固定踢转。
@@ -65,7 +81,7 @@ AssessmentOutput AssessmentController::step(bool position, uint32_t elapsed_ms,
     else breakaway_ *= 0.99f;
     const float base = CONTROL_ASSESSMENT_SPEED_KP * error +
                        sign * (CONTROL_ASSESSMENT_FRICTION_RAW + breakaway_) +
-                       AssessmentAngleFeedforward(angle, r.speed_reference);
+                       AssessmentAngleFeedforward(angle, r.speed_reference) + r.derivative_output;
     const float limit = CONTROL_ASSESSMENT_CURRENT_LIMIT;
     const float candidate = clamp(integral_ + CONTROL_ASSESSMENT_SPEED_KI * error * 0.001f,
                                   -limit, limit);

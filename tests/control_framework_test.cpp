@@ -484,6 +484,33 @@ int main() {
         }
         assert(AssessmentAngleFeedforward(std::numeric_limits<float>::quiet_NaN(), 1) == 0);
         assert(AssessmentAngleFeedforward(0, std::numeric_limits<float>::infinity()) == 0);
+        // 目标突变且实际速度不变时，不产生D冲击。
+        controller.reset(0);
+        const uint32_t reference_steps[] = {0U, 2000U, 6000U, 0U};
+        for (const uint32_t phase_ms : reference_steps) {
+            assert(controller.step(false, phase_ms, 0, 0, 0).derivative_output == 0);
+        }
+        // 速度上升产生负向D给定，速度下降产生正向D给定；限幅且重置清除历史。
+        controller.reset(0);
+        const auto rising = controller.step(false, 2000, 0, 0, 100);
+        assert(std::isfinite(rising.output));
+        assert(std::fabs(rising.derivative_output) <= CONTROL_ASSESSMENT_SPEED_D_LIMIT);
+        controller.reset(100);
+        const auto falling = controller.step(false, 2000, 0, 0, 0);
+        assert(std::fabs(falling.derivative_output) <= CONTROL_ASSESSMENT_SPEED_D_LIMIT);
+        if (CONTROL_ASSESSMENT_SPEED_KD > 0) {
+            assert(rising.derivative_output < 0 && falling.derivative_output > 0);
+            assert(std::fabs(rising.derivative_output) == CONTROL_ASSESSMENT_SPEED_D_LIMIT);
+        } else {
+            assert(rising.derivative_output == 0 && falling.derivative_output == 0);
+        }
+        for (unsigned i = 0; i < 500; ++i) {
+            const auto settled = controller.step(false, 2000, 0, 0, 0);
+            assert(std::fabs(settled.derivative_output) <= CONTROL_ASSESSMENT_SPEED_D_LIMIT);
+        }
+        assert(std::fabs(controller.step(false, 2000, 0, 0, 0).derivative_output) < 0.001f);
+        controller.reset(0);
+        assert(controller.step(false, 2000, 0, 0, 0).derivative_output == 0);
         controller.reset(0);
         for (unsigned i = 0; i < 4000; ++i) {
             const auto v = controller.step(false, 2000, 0, 0, 0);
