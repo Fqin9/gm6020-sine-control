@@ -473,6 +473,23 @@ int main() {
         for (unsigned i = 0; i < 50; ++i) early = controller.step(false, 2000, 0, 0, 0);
         const float integration_only = CONTROL_ASSESSMENT_SPEED_KI * 3.0f * 0.049f;
         assert(std::fabs((early.output - first) - integration_only) < 0.01f);
+        // 持续静止时补偿有延迟、有界增长，重置后不会继承上一轮补偿。
+        controller.reset(0);
+        float final_boost = 0;
+        const float stationary_base = CONTROL_ASSESSMENT_SPEED_KP * 3.0f +
+            CONTROL_ASSESSMENT_FRICTION_RAW + AssessmentAngleFeedforward(0, 3.0f);
+        for (unsigned i = 1; i <= 400; ++i) {
+            const auto stationary = controller.step(false, 2000, 0, 0, 0);
+            const float pi_only = stationary_base + CONTROL_ASSESSMENT_SPEED_KI * 3.0f * i * 0.001f;
+            final_boost = stationary.output - pi_only;
+            assert(final_boost >= -0.02f && final_boost <= CONTROL_ASSESSMENT_BREAKAWAY_RAW + 0.02f);
+            if (i < CONTROL_ASSESSMENT_BREAKAWAY_DELAY_MS) assert(std::fabs(final_boost) < 0.02f);
+            if (i == CONTROL_ASSESSMENT_BREAKAWAY_DELAY_MS)
+                assert(std::fabs(final_boost - CONTROL_ASSESSMENT_BREAKAWAY_RAMP_RAW_PER_MS) < 0.02f);
+        }
+        assert(std::fabs(final_boost - CONTROL_ASSESSMENT_BREAKAWAY_RAW) < 0.02f);
+        controller.reset(0);
+        assert(std::fabs(controller.step(false, 2000, 0, 0, 0).output - first) < 0.01f);
         for (int i = -500; i <= 500; ++i) {
             const float angle = i * 0.07f;
             const float feed = AssessmentAngleFeedforward(angle, 1.0f);

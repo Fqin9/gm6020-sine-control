@@ -6,6 +6,8 @@ namespace {
 static_assert(CONTROL_ASSESSMENT_SPEED_FILTER_ALPHA > 0 && CONTROL_ASSESSMENT_SPEED_FILTER_ALPHA <= 1,
               "Speed filter alpha must be in (0, 1]");
 static_assert(CONTROL_ASSESSMENT_SPEED_KD >= 0, "Derivative gain must be nonnegative");
+static_assert(CONTROL_ASSESSMENT_BREAKAWAY_RAMP_RAW_PER_MS > 0,
+              "Breakaway compensation ramp must be positive");
 static_assert(CONTROL_ASSESSMENT_SPEED_D_FILTER_MS > 0, "Derivative filtering must be enabled");
 static_assert(CONTROL_ASSESSMENT_SPEED_D_LIMIT > 0 &&
               CONTROL_ASSESSMENT_SPEED_D_LIMIT <= CONTROL_ASSESSMENT_CURRENT_LIMIT,
@@ -77,7 +79,8 @@ AssessmentOutput AssessmentController::step(bool position, uint32_t elapsed_ms,
     stalled_ticks_ = stalled ? stalled_ticks_ + 1U : 0U;
     // 连续低速至少 100 ms 才补偿；经过零速或短暂的 RPM 量化零值不立即踢转。
     if (stalled_ticks_ >= CONTROL_ASSESSMENT_BREAKAWAY_DELAY_MS)
-        breakaway_ = clamp(breakaway_ + 0.5f, 0, CONTROL_ASSESSMENT_BREAKAWAY_RAW);
+        breakaway_ = clamp(breakaway_ + CONTROL_ASSESSMENT_BREAKAWAY_RAMP_RAW_PER_MS,
+                           0, CONTROL_ASSESSMENT_BREAKAWAY_RAW);
     else breakaway_ *= 0.99f;
     const float base = CONTROL_ASSESSMENT_SPEED_KP * error +
                        sign * (CONTROL_ASSESSMENT_FRICTION_RAW + breakaway_) +
