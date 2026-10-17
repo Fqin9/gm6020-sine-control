@@ -1,0 +1,100 @@
+#ifndef CONTROL_CONFIG_H
+#define CONTROL_CONFIG_H
+
+// 已通过实机反馈核对 CAN1 / GM6020 ID 1。
+#ifndef CONTROL_CAN_CHANNEL
+#define CONTROL_CAN_CHANNEL 1
+#endif
+
+#ifndef CONTROL_MOTOR_ID
+#define CONTROL_MOTOR_ID 1
+#endif
+
+// 现场排查：接收所有标准数据帧并记录 ID，电机解析仍只接受配置的 ID。
+// 排查完成后可设为 0，恢复硬件精确 ID 过滤。
+#ifndef CONTROL_CAN_DIAGNOSTIC_RX
+#define CONTROL_CAN_DIAGNOSTIC_RX 1
+#endif
+
+// 反馈超时撤销运动使能；主循环仍可运行和喂狗。
+#define CONTROL_FEEDBACK_TIMEOUT_MS 100U
+#define CONTROL_WATCHDOG_FEED_INTERVAL_MS 10U
+
+// 实机橙灯常亮对应电流模式收到电压指令，现改发电流协议。
+// 1 = 电流 (0x1FE/0x2FE)，0 = 电压 (0x1FF/0x2FF)。不修改电机内部设置。
+#ifndef CONTROL_COMMAND_CURRENT
+#define CONTROL_COMMAND_CURRENT 1
+#endif
+
+// 已接入串口/KEY 限时试转。
+// 1 只允许发送；上电仍处于停止状态，须显式调用启动接口才有非零输出。
+#ifndef CONTROL_CAN_TX_ENABLED
+#define CONTROL_CAN_TX_ENABLED 1
+#endif
+#define CONTROL_TX_TIMEOUT_MS 5U
+#define CONTROL_TEST_MAX_DURATION_MS 1000U
+// 速度反馈闭环可观察至 3 秒；固定给定/串口 START 仍限时 1 秒。
+#define CONTROL_SPEED_TEST_MAX_DURATION_MS 3000U
+// 下面都是协议原始数值，不是伏特。电流模式下 raw/16384*3 A。
+#define CONTROL_TEST_OUTPUT_LIMIT 1000
+
+// KEY 短按释放只执行一次小输出试转；不是速度或电压的物理单位。
+#define CONTROL_KEY_TEST_RAW 500
+#define CONTROL_KEY_TEST_MS 200U
+
+// 1: KEY 启动一次恒速闭环试验；0: 保留上述固定给定试转。
+#ifndef CONTROL_KEY_SPEED_TEST
+#define CONTROL_KEY_SPEED_TEST 1
+#endif
+// 最终演示入口：短按依次运行速度正弦、位置正弦；运行中按下即停止。
+#ifndef CONTROL_KEY_ASSESSMENT
+#define CONTROL_KEY_ASSESSMENT 1
+#endif
+#define CONTROL_KEY_SPEED_TARGET_RAD_S 0.5f
+#define CONTROL_KEY_SPEED_DURATION_MS 3000U
+#define CONTROL_SPEED_TEST_MAX_TARGET_RAD_S 1.0f
+
+// 速度模式计算开关，与运动使能独立；PID 输出单位随控制模式变化。
+// 1 = 反馈有效时计算 PID；0 = 只预览目标曲线。
+#ifndef CONTROL_SPEED_CALC_ENABLED
+#define CONTROL_SPEED_CALC_ENABLED 1
+#endif
+
+// 演示曲线：幅值 1 rad/s，周期 4 秒。不是实机验收参数。
+#define CONTROL_SPEED_AMPLITUDE_RAD_S 1.0f
+#define CONTROL_SPEED_PERIOD_MS 4000U
+
+// 电流反馈确认后的限时试验：保持低 P，适度提高 I 和电流上限；非最终参数。
+#ifndef CONTROL_SPEED_KP
+#define CONTROL_SPEED_KP 200.0f
+#endif
+#ifndef CONTROL_SPEED_KI
+#define CONTROL_SPEED_KI 2000.0f
+#endif
+#ifndef CONTROL_SPEED_KD
+#define CONTROL_SPEED_KD 0.0f
+#endif
+
+// 电流模式 PID 给定限幅 ±800，约 ±0.146 A；速度试验限时 3000 ms。
+#ifndef CONTROL_SPEED_OUTPUT_LIMIT
+#define CONTROL_SPEED_OUTPUT_LIMIT 800.0f
+#endif
+
+// 考核曲线由任务允许自定：各运行两个完整周期，均在当前反馈位置建立基准。
+#define CONTROL_ASSESSMENT_PERIOD_MS 8000U
+#define CONTROL_ASSESSMENT_CYCLES 2U
+#define CONTROL_ASSESSMENT_SPEED_AMPLITUDE 3.0f
+#define CONTROL_ASSESSMENT_POSITION_AMPLITUDE 1.0f
+#define CONTROL_ASSESSMENT_SPEED_KP 300.0f
+#define CONTROL_ASSESSMENT_SPEED_KI 600.0f
+#define CONTROL_ASSESSMENT_POSITION_KP 4.0f
+#define CONTROL_ASSESSMENT_SPEED_LIMIT 3.0f
+#define CONTROL_ASSESSMENT_CURRENT_LIMIT 2500.0f
+// 平滑摩擦前馈与有界起动补偿；候选整定值，实机跟踪性能尚未验收。
+#define CONTROL_ASSESSMENT_FRICTION_RAW 650.0f
+#define CONTROL_ASSESSMENT_BREAKAWAY_RAW 500.0f
+#define CONTROL_ASSESSMENT_OVERSPEED_RAD_S 12.0f
+#define CONTROL_ASSESSMENT_POSITION_ERROR_RAD 2.0f
+#define CONTROL_ASSESSMENT_MAX_TEMPERATURE_C 80.0f
+
+#endif

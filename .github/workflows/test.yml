@@ -1,0 +1,9 @@
+name: Host control logic
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run control and input matrix
+        run: python3 tests/run_tests.py

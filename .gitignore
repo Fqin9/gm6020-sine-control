@@ -1,0 +1,11 @@
+build/
+captures/
+.vscode/
+新建文件夹/
+__pycache__/
+*.bin
+*.elf
+*.map
+*.o
+*.hex
+*.zip
