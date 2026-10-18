@@ -1,0 +1,29 @@
+/*********************************************************************
+* Speed sine: amplitude 8 rad/s, period 8 s, 2 cycles.
+* Speed PI: P220 / I100 / D0.
+* Each short KEY press starts speed mode 4.
+* Loading the project does not start or reset the target.
+*********************************************************************/
+void OnProjectLoad (void) {
+  Project.SetDevice ("STM32F407IG");
+  Project.SetHostIF ("USB", "");
+  Project.SetTargetIF ("SWD");
+  Project.SetTIFSpeed ("1 MHz");
+  Project.AddPathSubstitute ("/gm6020-source", "$(ProjectDir)/..");
+  File.Open ("$(ProjectDir)/../build/SpeedDebug/C_project.elf");
+  Window.Show ("Data Sampling");
+  Window.Add ("Data Sampling", "g_assessment_status.target_speed_rad_s");
+  Window.Add ("Data Sampling", "g_assessment_status.actual_speed_rad_s");
+  Edit.SysVar (VAR_HSS_SPEED, 1000);
+  Watch.Add ("g_assessment_status.mode");
+  Edit.RefreshRate ("g_assessment_status.mode", 2);
+  Watch.Add ("g_assessment_status.rms_error");
+  Edit.RefreshRate ("g_assessment_status.rms_error", 2);
+  Watch.Add ("g_assessment_status.max_abs_error");
+  Edit.RefreshRate ("g_assessment_status.max_abs_error", 2);
+  Watch.Add ("g_assessment_status.saturated_samples");
+  Edit.RefreshRate ("g_assessment_status.saturated_samples", 2);
+  Watch.Add ("g_control_status.output_fault");
+  Edit.RefreshRate ("g_control_status.output_fault", 2);
+  Window.Show ("Timeline");
+}

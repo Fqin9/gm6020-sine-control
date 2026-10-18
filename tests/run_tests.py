@@ -17,6 +17,8 @@ sources = ['tests/control_framework_test.cpp', 'C_board_src/ControlTask.cpp',
            'C_board_src/Gm6020.cpp', 'C_board_src/Pid.cpp', 'C_board_src/AssessmentController.cpp']
 cases = {
     'default-can1': [], 'derivative-enabled': ['CONTROL_ASSESSMENT_SPEED_KD=0.5f'],
+    'fixed-speed-curves': ['CONTROL_ASSESSMENT_FIXED_MODE=4', 'CONTROL_ASSESSMENT_SPEED_AMPLITUDE=8.0f', 'CONTROL_ASSESSMENT_SPEED_KP=220.0f', 'CONTROL_ASSESSMENT_SPEED_KI=100.0f'],
+    'fixed-position-curves': ['CONTROL_ASSESSMENT_FIXED_MODE=5', 'CONTROL_ASSESSMENT_SPEED_AMPLITUDE=8.0f', 'CONTROL_ASSESSMENT_SPEED_KP=220.0f', 'CONTROL_ASSESSMENT_SPEED_KI=100.0f'],
     'angle-ff-disabled': ['CONTROL_ASSESSMENT_ANGLE_FF_ENABLED=0'],
     'voltage-id1': ['CONTROL_COMMAND_CURRENT=0'],
     'voltage-id5': ['CONTROL_COMMAND_CURRENT=0', 'CONTROL_MOTOR_ID=5'],

@@ -16,6 +16,8 @@ $commonArgs = @(
 $cases = @(
     @{ Name = 'default-can1'; Flags = @() },
     @{ Name = 'derivative-enabled'; Flags = @('-DCONTROL_ASSESSMENT_SPEED_KD=0.5f') },
+    @{ Name = 'fixed-speed-curves'; Flags = @('-DCONTROL_ASSESSMENT_FIXED_MODE=4','-DCONTROL_ASSESSMENT_SPEED_AMPLITUDE=8.0f','-DCONTROL_ASSESSMENT_SPEED_KP=220.0f','-DCONTROL_ASSESSMENT_SPEED_KI=100.0f') },
+    @{ Name = 'fixed-position-curves'; Flags = @('-DCONTROL_ASSESSMENT_FIXED_MODE=5','-DCONTROL_ASSESSMENT_SPEED_AMPLITUDE=8.0f','-DCONTROL_ASSESSMENT_SPEED_KP=220.0f','-DCONTROL_ASSESSMENT_SPEED_KI=100.0f') },
     @{ Name = 'angle-ff-disabled'; Flags = @('-DCONTROL_ASSESSMENT_ANGLE_FF_ENABLED=0') },
     @{ Name = 'voltage-id1'; Flags = @('-DCONTROL_COMMAND_CURRENT=0') },
     @{ Name = 'voltage-id5'; Flags = @('-DCONTROL_COMMAND_CURRENT=0', '-DCONTROL_MOTOR_ID=5') },

@@ -12,7 +12,7 @@ dest = args.destination.resolve()
 if dest.exists() or root.is_relative_to(dest):
     raise SystemExit('Destination must be a new directory, outside the source ancestry')
 dest.mkdir(parents=True)
-directories = ['Core', 'Drivers', 'C_board_src', 'cmake', 'tests', 'tools', 'docs', '.github']
+directories = ['Core', 'Drivers', 'C_board_src', 'cmake', 'tests', 'tools', 'docs', 'ozone', '.github']
 for name in directories:
     shutil.copytree(root / name, dest / name,
                     ignore=shutil.ignore_patterns('__pycache__', '框架说明.md'))

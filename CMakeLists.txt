@@ -31,6 +31,15 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 # Enable CMake support for ASM and C languages
 enable_language(C CXX ASM)
 
+# Use stable debug paths for portable ELF files and Ozone source lookup.
+get_filename_component(ARM_TOOLCHAIN_BIN "${CMAKE_C_COMPILER}" DIRECTORY)
+get_filename_component(ARM_TOOLCHAIN_ROOT "${ARM_TOOLCHAIN_BIN}" DIRECTORY)
+add_compile_options(
+    "-ffile-prefix-map=${CMAKE_SOURCE_DIR}=/gm6020-source"
+    "-ffile-prefix-map=${ARM_TOOLCHAIN_ROOT}=/arm-gnu"
+    "$<$<COMPILE_LANGUAGE:ASM>:-Wa,--debug-prefix-map,${CMAKE_SOURCE_DIR}=/gm6020-source>"
+)
+
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
 

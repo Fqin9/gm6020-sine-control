@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-18",
+  "timezone": "Asia/Shanghai",
+  "hardware": {
+    "board": "RoboMaster C",
+    "mcu": "STM32F407IG",
+    "motor": "GM6020",
+    "can": 1,
+    "motor_id": 1
+  },
+  "controller": {
+    "speed_kp": 220,
+    "speed_ki": 100,
+    "speed_kd": 0,
+    "position_kp": 7,
+    "speed_filter_alpha": 0.5,
+    "current_limit_raw": 2500
+  },
+  "trajectories": {
+    "speed_amplitude_rad_s": 8,
+    "position_amplitude_rad": 1,
+    "period_ms": 8000,
+    "cycles": 2
+  },
+  "speed": {
+    "evidence": "speed_8rad_s_D0_20261018.png",
+    "source": "user-provided Ozone screenshot",
+    "sampling_frequency_hz": 1000,
+    "rms_error": null,
+    "max_abs_error": null
+  },
+  "position": {
+    "preset": "PositionDebug",
+    "rms_error": null,
+    "max_abs_error": null
+  },
+  "historical_measurements": "measurements.json"
+}

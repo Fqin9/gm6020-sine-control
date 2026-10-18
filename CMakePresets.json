@@ -1,38 +1,61 @@
 {
-    "version": 3,
-    "configurePresets": [
-        {
-            "name": "default",
-            "hidden": true,
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-		    "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
-            "cacheVariables": {
-            }
-        },
-        {
-            "name": "Debug",
-            "inherits": "default",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
-        },
-        {
-            "name": "Release",
-            "inherits": "default",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
-            }
-        }
-    ],
-    "buildPresets": [
-        {
-            "name": "Debug",
-            "configurePreset": "Debug"
-        },
-        {
-            "name": "Release",
-            "configurePreset": "Release"
-        }
-    ]
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "default",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-gdwarf-4"
+      }
+    },
+    {
+      "name": "Debug",
+      "inherits": "default",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "SpeedDebug",
+      "inherits": "Debug",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-gdwarf-4 -DCONTROL_ASSESSMENT_FIXED_MODE=4"
+      }
+    },
+    {
+      "name": "PositionDebug",
+      "inherits": "Debug",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-gdwarf-4 -DCONTROL_ASSESSMENT_FIXED_MODE=5"
+      }
+    },
+    {
+      "name": "Release",
+      "inherits": "default",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "Debug",
+      "configurePreset": "Debug"
+    },
+    {
+      "name": "SpeedDebug",
+      "configurePreset": "SpeedDebug"
+    },
+    {
+      "name": "PositionDebug",
+      "configurePreset": "PositionDebug"
+    },
+    {
+      "name": "Release",
+      "configurePreset": "Release"
+    }
+  ]
 }

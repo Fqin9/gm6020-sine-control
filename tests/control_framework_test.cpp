@@ -121,6 +121,8 @@ HAL_StatusTypeDef HAL_CAN_AbortTxRequest(CAN_HandleTypeDef *handle, uint32_t mai
 int main() {
     ControlTaskInit();
     assert(g_control_status.initialized == 1);
+    assert(g_assessment_status.next_mode == (CONTROL_ASSESSMENT_FIXED_MODE ?
+        CONTROL_ASSESSMENT_FIXED_MODE : static_cast<uint32_t>(CONTROL_OUTPUT_SPEED_SINE)));
     assert(g_control_status.command_mode == CONTROL_COMMAND_CURRENT);
     assert(ControlStartVoltageTest(100, 20) == 0); // 无反馈不可使能。
     assert(ControlStartSpeedOutput() == 0);
@@ -463,6 +465,58 @@ int main() {
         assert(ControlStartSpeedTest(0.5f, 1000) == 0);
     }
     std::puts("PASS: CAN encoding, explicit enable, bounded test, stop/abort, timeout, reconnect, TX errors, speed output");
+    if (CONTROL_ASSESSMENT_FIXED_MODE && CONTROL_COMMAND_CURRENT && CONTROL_SPEED_CALC_ENABLED) {
+        // A dedicated graph build must start, finish and repeat the same control mode.
+        const uint32_t fixed = CONTROL_ASSESSMENT_FIXED_MODE;
+        const bool position = fixed == CONTROL_OUTPUT_POSITION_SINE;
+        const uint32_t other = position ? CONTROL_OUTPUT_SPEED_SINE : CONTROL_OUTPUT_POSITION_SINE;
+        freshTick(now_ms + 1);
+        assert(ControlClearOutputFault() == 1);
+        assert(g_assessment_status.next_mode == fixed);
+        assert(ControlSelectAssessment(other) == 0);
+        assert(ControlStartAssessment(other) == 0);
+        assert(g_control_status.output_mode == CONTROL_OUTPUT_STOPPED);
+        for (unsigned repeat = 0; repeat < 2; ++repeat) {
+            const float center = g_control_status.angle_rad;
+            assert(ControlStartNextAssessment() == 1);
+            assert(g_assessment_status.mode == fixed && g_assessment_log.mode == fixed);
+            const uint32_t start = now_ms;
+            for (uint32_t i = 1; i <= 16000; ++i) {
+                now_ms = start + i;
+                const float phase = 6.28318530718f * i / 8000.0f;
+                const float angle = center + (position ? std::sin(phase) : 0.0f);
+                int raw = static_cast<int>(std::lround(angle * 8192 / 6.28318530718f)) % 8192;
+                if (raw < 0) raw += 8192;
+                const float speed = position ? 0.78539816f * std::cos(phase)
+                                            : CONTROL_ASSESSMENT_SPEED_AMPLITUDE * std::sin(phase);
+                enqueue(static_cast<uint16_t>(raw), 0x204U + CONTROL_MOTOR_ID, 8,
+                        static_cast<int16_t>(speed * 60 / 6.28318530718f));
+                tick(now_ms);
+                assert(std::fabs(g_control_status.output_command) <= CONTROL_ASSESSMENT_CURRENT_LIMIT);
+            }
+            assert(g_assessment_status.completed == 1 && g_assessment_status.aborted == 0);
+            assert(g_assessment_status.running == 0 && g_assessment_status.next_mode == fixed);
+            assert(g_assessment_status.rms_error < (position ? 0.002f : 0.11f));
+            assert(g_assessment_log.count >= 800);
+            assert(g_assessment_log.points[g_assessment_log.count - 1].output_raw == 0);
+            expectVoltage(0);
+        }
+        assert(ControlStartNextAssessment() == 1);
+        freshTick(now_ms + 1);
+        ControlStopOutput(); freshTick(now_ms + 1);
+        assert(g_assessment_status.aborted == 1 && g_assessment_status.completed == 0);
+        assert(g_assessment_status.next_mode == fixed);
+        expectVoltage(0);
+        assert(ControlStartNextAssessment() == 1);
+        freshTick(now_ms + 1); tick(now_ms + CONTROL_FEEDBACK_TIMEOUT_MS);
+        assert(g_control_status.output_fault & CONTROL_FAULT_FEEDBACK);
+        assert(g_assessment_status.aborted == 1);
+        freshTick(now_ms + 1); assert(ControlClearOutputFault() == 1);
+        assert(g_control_status.output_mode == CONTROL_OUTPUT_STOPPED);
+        assert(g_assessment_status.running == 0 && g_assessment_status.next_mode == fixed);
+        std::puts("PASS: dedicated curve mode, wrong-mode rejection, repeat, bounded log, stop and feedback fault");
+        return 0;
+    }
     if (CONTROL_COMMAND_CURRENT && CONTROL_SPEED_CALC_ENABLED) {
         AssessmentController controller;
         controller.reset(0);
@@ -471,16 +525,19 @@ int main() {
         const float first = controller.step(false, 2000, 0, 0, 0).output;
         controller.reset(0);
         for (unsigned i = 0; i < 50; ++i) early = controller.step(false, 2000, 0, 0, 0);
-        const float integration_only = CONTROL_ASSESSMENT_SPEED_KI * 3.0f * 0.049f;
+        const float integration_only = CONTROL_ASSESSMENT_SPEED_KI * CONTROL_ASSESSMENT_SPEED_AMPLITUDE * 0.049f;
         assert(std::fabs((early.output - first) - integration_only) < 0.01f);
         // 持续静止时补偿有延迟、有界增长，重置后不会继承上一轮补偿。
         controller.reset(0);
         float final_boost = 0;
-        const float stationary_base = CONTROL_ASSESSMENT_SPEED_KP * 3.0f +
-            CONTROL_ASSESSMENT_FRICTION_RAW + AssessmentAngleFeedforward(0, 3.0f);
+        // Exercise compensation growth below saturation; saturation is checked separately below.
+        const uint32_t boost_phase_ms = CONTROL_ASSESSMENT_PERIOD_MS / 8U;
+        const float boost_target = CONTROL_ASSESSMENT_SPEED_AMPLITUDE * std::sin(6.28318530718f / 8.0f);
+        const float stationary_base = CONTROL_ASSESSMENT_SPEED_KP * boost_target +
+            CONTROL_ASSESSMENT_FRICTION_RAW + AssessmentAngleFeedforward(0, boost_target);
         for (unsigned i = 1; i <= 400; ++i) {
-            const auto stationary = controller.step(false, 2000, 0, 0, 0);
-            const float pi_only = stationary_base + CONTROL_ASSESSMENT_SPEED_KI * 3.0f * i * 0.001f;
+            const auto stationary = controller.step(false, boost_phase_ms, 0, 0, 0);
+            const float pi_only = stationary_base + CONTROL_ASSESSMENT_SPEED_KI * boost_target * i * 0.001f;
             final_boost = stationary.output - pi_only;
             assert(final_boost >= -0.02f && final_boost <= CONTROL_ASSESSMENT_BREAKAWAY_RAW + 0.02f);
             if (i < CONTROL_ASSESSMENT_BREAKAWAY_DELAY_MS) assert(std::fabs(final_boost) < 0.02f);
@@ -531,7 +588,7 @@ int main() {
         controller.reset(0);
         for (unsigned i = 0; i < 4000; ++i) {
             const auto v = controller.step(false, 2000, 0, 0, 0);
-            assert(std::fabs(v.target_speed - 3.0f) < 0.0001f);
+            assert(std::fabs(v.target_speed - CONTROL_ASSESSMENT_SPEED_AMPLITUDE) < 0.0001f);
             assert(std::fabs(v.output) <= CONTROL_ASSESSMENT_CURRENT_LIMIT);
         }
         AssessmentOutput unwind = {};
@@ -551,7 +608,7 @@ int main() {
         const uint32_t assessment_start = now_ms;
         for (uint32_t i = 1; i <= 16000; ++i) {
             now_ms = assessment_start + i;
-            const float target = 3.0f * std::sin(6.28318530718f * i / 8000.0f);
+            const float target = CONTROL_ASSESSMENT_SPEED_AMPLITUDE * std::sin(6.28318530718f * i / 8000.0f);
             enqueue(6000, 0x204U + CONTROL_MOTOR_ID, 8, static_cast<int16_t>(target * 60 / 6.28318530718f));
             tick(now_ms);
             assert(std::fabs(g_control_status.output_command) <= CONTROL_ASSESSMENT_CURRENT_LIMIT);

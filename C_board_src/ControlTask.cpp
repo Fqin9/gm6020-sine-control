@@ -17,6 +17,10 @@ volatile AssessmentStatus g_assessment_status = {};
 volatile AssessmentLog g_assessment_log = {};
 
 namespace {
+static_assert(CONTROL_ASSESSMENT_FIXED_MODE == 0 ||
+              CONTROL_ASSESSMENT_FIXED_MODE == CONTROL_OUTPUT_SPEED_SINE ||
+              CONTROL_ASSESSMENT_FIXED_MODE == CONTROL_OUTPUT_POSITION_SINE,
+              "Fixed assessment mode must be 0, 4 or 5");
 static_assert(CONTROL_ASSESSMENT_CURRENT_LIMIT > 0 && CONTROL_ASSESSMENT_CURRENT_LIMIT <= 16384,
               "Assessment current outside protocol range");
 static_assert(CONTROL_ASSESSMENT_PERIOD_MS * CONTROL_ASSESSMENT_CYCLES <= 20000U,
@@ -174,6 +178,9 @@ void runAssessment(uint32_t now, float speed) {
     if (elapsed >= g_assessment_status.duration_ms) {
         g_assessment_status.completed = 1;
         g_assessment_status.next_mode = position ? CONTROL_OUTPUT_SPEED_SINE : CONTROL_OUTPUT_POSITION_SINE;
+#if CONTROL_ASSESSMENT_FIXED_MODE
+        g_assessment_status.next_mode = CONTROL_ASSESSMENT_FIXED_MODE;
+#endif
         stopOutput(CONTROL_FAULT_NONE);
         recordAssessment(elapsed, true);
         return;
@@ -442,6 +449,7 @@ uint32_t ControlStartSpeedTest(float target_rad_s, uint32_t duration_ms) {
 uint32_t ControlSelectAssessment(uint32_t mode) {
     const InterruptGuard guard;
     if (g_control_status.output_mode != CONTROL_OUTPUT_STOPPED ||
+        (CONTROL_ASSESSMENT_FIXED_MODE != 0 && mode != CONTROL_ASSESSMENT_FIXED_MODE) ||
         (mode != CONTROL_OUTPUT_SPEED_SINE && mode != CONTROL_OUTPUT_POSITION_SINE)) return 0;
     g_assessment_status.next_mode = mode;
     return 1;
@@ -458,6 +466,7 @@ uint32_t ControlStartAssessment(uint32_t mode) {
         !g_control_status.initialized || !feedbackFresh(now) || g_control_status.output_fault ||
         g_control_status.output_mode != CONTROL_OUTPUT_STOPPED ||
         (tx_mailbox != 0 && (pending_voltage != 0 || tx_aborting)) ||
+        (CONTROL_ASSESSMENT_FIXED_MODE != 0 && mode != CONTROL_ASSESSMENT_FIXED_MODE) ||
         (mode != CONTROL_OUTPUT_SPEED_SINE && mode != CONTROL_OUTPUT_POSITION_SINE)) return 0;
     assessment_start_ms = now;
     assessment_center = g_control_status.angle_rad;
@@ -534,7 +543,11 @@ void ControlTaskInit(void) {
         return;
     }
     g_control_status.initialized = 1;
+#if CONTROL_ASSESSMENT_FIXED_MODE
+    g_assessment_status.next_mode = CONTROL_ASSESSMENT_FIXED_MODE;
+#else
     g_assessment_status.next_mode = CONTROL_OUTPUT_SPEED_SINE;
+#endif
     g_control_status.command_mode = CONTROL_COMMAND_CURRENT;
     g_can_diagnostics.channel = CONTROL_CAN_CHANNEL;
     g_can_diagnostics.expected_id = motor.rxId();

@@ -1,0 +1,33 @@
+/*********************************************************************
+* Position sine: +/-1 rad about the starting angle, period 8 s, 2 cycles.
+* Position outer loop P7; speed inner loop P220 / I100 / D0.
+* Each short KEY press starts position mode 5 directly.
+* Loading the project does not start or reset the target.
+*********************************************************************/
+void OnProjectLoad (void) {
+  Project.SetDevice ("STM32F407IG");
+  Project.SetHostIF ("USB", "");
+  Project.SetTargetIF ("SWD");
+  Project.SetTIFSpeed ("1 MHz");
+  Project.AddPathSubstitute ("/gm6020-source", "$(ProjectDir)/..");
+  File.Open ("$(ProjectDir)/../build/PositionDebug/C_project.elf");
+  Window.Show ("Data Sampling");
+  Window.Add ("Data Sampling", "g_assessment_status.target_angle_rad");
+  Window.Add ("Data Sampling", "g_assessment_status.actual_angle_rad");
+  Edit.SysVar (VAR_HSS_SPEED, 1000);
+  Watch.Add ("g_assessment_status.completed");
+  Edit.RefreshRate ("g_assessment_status.completed", 2);
+  Watch.Add ("g_assessment_status.aborted");
+  Edit.RefreshRate ("g_assessment_status.aborted", 2);
+  Watch.Add ("g_assessment_status.mode");
+  Edit.RefreshRate ("g_assessment_status.mode", 2);
+  Watch.Add ("g_assessment_status.rms_error");
+  Edit.RefreshRate ("g_assessment_status.rms_error", 2);
+  Watch.Add ("g_assessment_status.max_abs_error");
+  Edit.RefreshRate ("g_assessment_status.max_abs_error", 2);
+  Watch.Add ("g_assessment_status.saturated_samples");
+  Edit.RefreshRate ("g_assessment_status.saturated_samples", 2);
+  Watch.Add ("g_control_status.output_fault");
+  Edit.RefreshRate ("g_control_status.output_fault", 2);
+  Window.Show ("Timeline");
+}

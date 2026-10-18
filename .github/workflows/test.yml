@@ -1,9 +1,36 @@
-name: Host control logic
-on: [push, pull_request]
+name: Build and test
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  host-tests:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Run control and input matrix
         run: python3 tests/run_tests.py
+  firmware:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib ninja-build
+      - name: Build normal, speed and position firmware
+        run: |
+          cmake --preset Debug
+          cmake --build --preset Debug
+          cmake --preset SpeedDebug
+          cmake --build --preset SpeedDebug
+          cmake --preset PositionDebug
+          cmake --build --preset PositionDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gm6020-firmware
+          path: |
+            build/Debug/C_project.elf
+            build/SpeedDebug/C_project.elf
+            build/PositionDebug/C_project.elf
+            ozone/*.jdebug
+          if-no-files-found: error
